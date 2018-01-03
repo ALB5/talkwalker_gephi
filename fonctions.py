@@ -5,76 +5,76 @@ import pandas as pd
 def get_doc():
     """Ouvre le document et formatage des noms de colonnes pour
     éviter les conflits d'utilisation du point"""
-    filename = input("Entrez le chemin du fichier (format xslx): ")
+    filename = input("Entrez le chemin du fichier (format xlsx): ")
     export = pd.read_excel(filename)
     export.columns = [name.replace(".", "_") for name in export.columns]
     return export
 
-def format_auteur(export):
+def format_author(export):
     """Formater la colonne qui contient le nom du compte en rajoutant un "@"."""
-    auteur_formate = [name.replace(name, "@"+name) for name in
+    author_formate = [name.replace(name, "@"+name) for name in
                       export.extra_author_attributes_short_name]
-    return auteur_formate
+    return author_formate
 
 def format_date(export):
     """Formatage des dates de la colonne 'published' """
     date_time = pd.to_datetime(export['published'], errors='coerce', dayfirst=True)
     return date_time
 
-class Noeud:
-    """classe qui vise à créer notre fichier de noeuds"""
-    def __init__(self, export, auteur_formate, date_time):
+class node:
+    """classe qui vise à créer notre fichier de nodes"""
+    def __init__(self, export, author_formate, date_time):
         self.export = export
-        self.auteur_formate = auteur_formate
+        self.author_formate = author_formate
         self.date_time = date_time
 
-    def get_comptes_auteurs(self):
-        """Récupération des comptes émetteurs des tweets"""
-        auteurs = pd.DataFrame({"id": self.auteur_formate, "Label": self.auteur_formate,
+    def get_accounts_authors(self):
+        """Récupération des accounts émetteurs des tweets"""
+        authors = pd.DataFrame({"id": self.author_formate, "Label": self.author_formate,
                                 "interval": self.date_time.dt.date})
-        return auteurs
+        return authors
 
-    def get_comptes_in_tweets(self):
-        """Récupération de la liste des comptes présents dans les tweets"""
+    def get_accounts_in_tweets(self):
+        """Récupération de la liste des accounts présents dans les tweets"""
         content_tweets = self.export.content
         compte_twitter = r"@[a-zA-Z\d/_/-]+"
-        list_comptes_twitter = content_tweets.str.findall(compte_twitter)
+        list_accounts_twitter = content_tweets.str.findall(compte_twitter)
 
-        return list_comptes_twitter
+        return list_accounts_twitter
 
-    def list_comptes_in_tweets(self):
-        list_comptes_twitter = self.get_comptes_in_tweets()
-        df_list_comptes_twitter = pd.DataFrame(list_comptes_twitter.tolist(),
-                                               self.date_time.dt.date)
-        df_list_comptes_twitter = df_list_comptes_twitter.reset_index()
-        df_list_comptes_twitter = pd.melt(df_list_comptes_twitter,
-                                          id_vars=["published"],
-                                          value_name='Labels')
-        df_list_comptes_twitter = df_list_comptes_twitter.drop("variable", axis=1)
-        df_list_comptes_twitter = df_list_comptes_twitter[df_list_comptes_twitter.Labels.notnull()]
-        df_list_comptes_twitter = pd.DataFrame({"Id": df_list_comptes_twitter["Labels"],
-                                                "Label": df_list_comptes_twitter["Labels"],
-                                                "Interval": df_list_comptes_twitter["published"]})
-        return df_list_comptes_twitter
+    def list_accounts_in_tweets(self):
+        list_accounts_twitter = self.get_accounts_in_tweets()
+        df_list_accounts_twitter = pd.DataFrame(list_accounts_twitter.tolist(),
+                                                self.date_time.dt.date)
+        df_list_accounts_twitter = df_list_accounts_twitter.reset_index()
+        df_list_accounts_twitter = pd.melt(df_list_accounts_twitter,
+                                           id_vars=["published"],
+                                           value_name='Labels')
+        df_list_accounts_twitter = df_list_accounts_twitter.drop("variable", axis=1)
+        df_list_accounts_twitter = df_list_accounts_twitter[df_list_accounts_twitter.Labels.notnull()]
+        df_list_accounts_twitter = pd.DataFrame({"Id": df_list_accounts_twitter["Labels"],
+                                                 "Label": df_list_accounts_twitter["Labels"],
+                                                 "Interval": df_list_accounts_twitter["published"]})
+        return df_list_accounts_twitter
 
-    def concat_list_comptes(self):
+    def concat_list_accounts(self):
         """Ajout des deux listes pour créer un seul fichier"""
-        concat_list = pd.concat([self.get_comptes_auteurs(), self.list_comptes_in_tweets()])
+        concat_list = pd.concat([self.get_accounts_authors(), self.list_accounts_in_tweets()])
         trie_list = concat_list.sort_values(by='interval')
         drop_duplicates = trie_list.drop_duplicates(subset='Label')
         reset_index = drop_duplicates.reset_index(drop=True)
-        noeuds = input("Nommez le fichier des noeuds (en .csv): ")
+        nodes = input("Nommez le fichier des nodes (en .csv): ")
 
-        return reset_index.to_csv(noeuds)
+        return reset_index.to_csv(nodes)
 
-class Lien(Noeud):
-    """Création du fichier des liens qui doit contenir au moins deux colonnes : source et target"""
+class link(node):
+    """Création du fichier des links qui doit contenir au moins deux colonnes : source et target"""
 
     def get_source_destination(self):
         """Récupération de la colonne source en reprenant la colonne
-        "auteur" et la colonne destination via les comptes présents dans les tweets"""
-        source = pd.DataFrame({"Source": self.auteur_formate})
-        destination = self.get_comptes_in_tweets()
+        "author" et la colonne destination via les accounts présents dans les tweets"""
+        source = pd.DataFrame({"Source": self.author_formate})
+        destination = self.get_accounts_in_tweets()
         destination = pd.DataFrame(destination.tolist())
         concat_src_dest = pd.concat([source, destination, self.date_time.dt.date], axis=1)
 
@@ -88,18 +88,18 @@ class Lien(Noeud):
         melt_list = melt_list[melt_list.Target.notnull()]
         sort_sources = melt_list.sort_values(by="Source")
         sort_sources = sort_sources.reset_index(drop=True)
-        get_links = input("Nommez le fichier des liens (en .csv): ")
+        get_links = input("Nommez le fichier des links (en .csv): ")
 
         return sort_sources.to_csv(get_links)
 
 def main():
     export = get_doc()
-    auteurs_formate = format_auteur(export)
+    authors_formate = format_author(export)
     date_formatee = format_date(export)
-    noeuds = Noeud(export, auteurs_formate, date_formatee)
-    noeuds.concat_list_comptes()
-    liens = Lien(export, auteurs_formate, date_formatee)
-    liens.get_links()
+    nodes = node(export, authors_formate, date_formatee)
+    nodes.concat_list_accounts()
+    links = link(export, authors_formate, date_formatee)
+    links.get_links()
 
 if __name__ == '__main__':
     main()
